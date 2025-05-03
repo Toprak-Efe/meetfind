@@ -36,29 +36,37 @@ class CoordinateTab(Widget):
             for j in range(3)]
 
             for input in self.inputs:
-                input.styles.margin = (0, 1, 0, 1)
+                input.styles.margin = (0, 1, 1, 1)
                 yield input
-        
-            b = Button(label="Add Location", id="addLocation")
-            b.styles.margin = (1, 1, 0, 1)
-            b.styles.height = 3
-            b.styles.width = "1fr"
-            yield b
+            
+            with Horizontal() as h:
+                h.styles.align = ("center", "bottom")
+                h.styles.height = "auto"
+                for j in range(2):
+                    b = Button(label=("Add", "Find")[j], id=("addLoc", "findLoc")[j])
+                    b.styles.margin = (0, 1, 0, 1)
+                    b.styles.height = "auto"
+                    b.styles.width = "auto"
+                    yield b
 
-    def on_button_pressed(self) -> None:
-        if self.inputs[0].value == "":
-            return
-        if self.inputs[1].value == "" or self.inputs[2].value == "":
-            return
-        log = g_logger
-        log.write_line(f"{self.inputs[0].value}, {len(self.inputs[1].value)}, {self.inputs[2].value}")
-        self.w_coordinates.add_row(self.inputs[0].value, self.inputs[1].value, self.inputs[2].value)
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "addLoc":
+            if self.inputs[0].value == "":
+                return
+            if self.inputs[1].value == "" or self.inputs[2].value == "":
+                return
+            log = g_logger
+            log.write_line(f"{self.inputs[0].value}, {len(self.inputs[1].value)}, {self.inputs[2].value}")
+            self.w_coordinates.add_row(self.inputs[0].value, self.inputs[1].value, self.inputs[2].value)
+        if event.button.id == "findLoc":
+            # Create a message to the main app
+            pass
 
 class MeetfindApp(App):
     def compose(self) -> ComposeResult:
         self.w_c = CoordinateTab()
         self.w_c.styles.dock = "left"
-        self.w_c.styles.width = "26%"
+        self.w_c.styles.width = "30%"
         g_logger.styles.border = ("round", "white")
         g_logger.styles.background = Color(0, 0, 0)
         yield self.w_c
@@ -67,3 +75,7 @@ class MeetfindApp(App):
     def on_key(self, event: events.Key) -> None:
         if event.key == 'q':
             self.exit()
+
+    def on_find(self) -> None:
+        # Get the coordinates, find the centroid. use Google API to get nice Cafe's and print them out with hyperlinks in markdown.
+        pass
