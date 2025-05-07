@@ -1,7 +1,7 @@
 from textual import on
 from textual import events
-from textual.color import Color
 from textual.app import App, ComposeResult
+from textual.reactive import reactive
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Input, DataTable, Button, RichLog
@@ -9,7 +9,6 @@ from textual.containers import Vertical, Horizontal
 from textual.coordinate import Coordinate
 from modules.geodesics import CentroidPlanner
 from modules.maps import gmaps_get_locations
-import json
 
 class CoordinateTab(Widget):
     def __init__(self, cords):
@@ -29,7 +28,6 @@ class CoordinateTab(Widget):
             table_coordinates.add_row("Doe", coordinate[0], coordinate[1])
         yield table_coordinates 
         with Vertical() as v:
-            #v.styles.border = ("round", "white")
             v.styles.margin = (1, 0, 0, 0)
             v.styles.align = ("center", "bottom")
             v.styles.height = "auto"
@@ -93,27 +91,11 @@ class CoordinateTab(Widget):
         row_key, _ = table_coordinates.coordinate_to_cell_key(cursor)
         table_coordinates.remove_row(row_key)
 
-
-class SearchResults(Widget):
-    def __init__(self, results):
-        Widget.__init__(self)
-        self.results = []
-        if results:
-            self.results = results
-
-    def compose(self) -> ComposeResult:
-        self.result_table = DataTable()
-        for column in ("Name", "Type", "Score", "Address", "Link"):
-            self.result_table.add_columns(column)
-        self.result_table.styles.margin = (0, 1, 1, 1)
-        yield self.result_table
-
 class MeetfindApp(App):
-    def __init__(self, coordinates,category):
+    def __init__(self, coordinates, category):
         App.__init__(self)
         self.coordinates = coordinates
         self.category = category 
-        self.results = []
 
     def compose(self) -> ComposeResult:
         coordinate_tab = CoordinateTab(self.coordinates)
@@ -121,12 +103,14 @@ class MeetfindApp(App):
         coordinate_tab.styles.width = "30%"
         yield coordinate_tab
         with Vertical() as v:
-            search_results = SearchResults(self.results)
+            search_results = DataTable(id="searchResults")
             search_results.styles.border = ("round", "white")
             search_results.styles.height = "70%"
+            for column in ("Name", "Type", "Rating", "Address", "Link"):
+                search_results.add_columns(column)
+            search_results.styles.margin = (0, 1, 1, 1)
             yield search_results
             rich_logger = RichLog(id="logger")
-            rich_logger.write("Sup.")
             rich_logger.styles.border = ("round", "white")
             rich_logger.styles.height = "30%"
             yield rich_logger
@@ -144,9 +128,8 @@ class MeetfindApp(App):
         if len(locs) == 0:
             logger.write(f"Unable to find any locations within the specified radius.")
             return
-        
-
-    def on_key(self, event: events.Key) -> None:
-        if event.key == 'q':
-            self.exit()
+        search_results = self.query_one("#searchResults", DataTable)
+        search_results.clear()
+        for result in locs:
+            search_results.add_row(result["name"], self.category, result["rating"], result["address"], result["link"])
 

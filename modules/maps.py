@@ -14,9 +14,9 @@ def gmaps_get_locations(coord: list[float], category: str, radius: float) -> tup
         for place in places:
             parsed_place = {
                 "name": place["name"],
-                "rating": f"{place["rating"] (place["user_ratings_total"])}",
-                "location": [place["geometry"]["location"]["lat"], place["geometry"]["location"]["lon"]],
-                "address": place["viccinity"],
+                "rating": f"{place["rating"]} ({place["user_ratings_total"]})",
+                "location": [place["geometry"]["location"]["lat"], place["geometry"]["location"]["lng"]],
+                "address": place["vicinity"],
                 "link": f"https://www.google.com/maps/search/?api=1&query={place['geometry']['location']['lat']},{place['geometry']['location']['lng']}"
             }
             parsed_places.append(parsed_place)
