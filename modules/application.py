@@ -1,30 +1,38 @@
+from textual import on
 from textual import events
 from textual.color import Color
 from textual.app import App, ComposeResult
+from textual.message import Message
 from textual.widget import Widget
-from textual.widgets import Input, DataTable, Placeholder, Button, Log
-from textual.containers import Vertical, Horizontal, HorizontalGroup, VerticalGroup
-
-g_logger = Log()
+from textual.widgets import Input, DataTable, Button, RichLog
+from textual.containers import Vertical, Horizontal
+from textual.coordinate import Coordinate
+from modules.geodesics import CentroidPlanner
+from modules.maps import gmaps_get_locations
 
 class CoordinateTab(Widget):
-    def compose(self) -> ComposeResult:
+    def __init__(self, cords):
+        Widget.__init__(self)
         self.styles.border = ("round", "white")
         self.styles.align = ("center", "top")
-        
-        self.w_coordinates = DataTable()
-        self.w_coordinates.styles.margin = (0, 1, 0, 1)
-        self.w_coordinates.add_column("Name")
-        self.w_coordinates.add_column("Lat")
-        self.w_coordinates.add_column("Lon")
-        yield self.w_coordinates 
-        
+        self.default_coordinates = cords
+
+    def compose(self) -> ComposeResult:
+        table_coordinates = DataTable(id="tableCoordinates")
+        table_coordinates.styles.margin = (0, 1, 0, 1)
+        table_coordinates.add_column("Name")
+        table_coordinates.add_column("Lat")
+        table_coordinates.add_column("Lon")
+        table_coordinates.cursor_type = "row"
+        for coordinate in self.default_coordinates:
+            table_coordinates.add_row("Doe", coordinate[0], coordinate[1])
+        yield table_coordinates 
         with Vertical() as v:
             #v.styles.border = ("round", "white")
+            v.styles.margin = (1, 0, 0, 0)
             v.styles.align = ("center", "bottom")
             v.styles.height = "auto"
-            v.styles.dock = "bottom"
-        
+            v.styles.dock = "bottom" 
             self.inputs = [
                 Input(
                     placeholder=("Name", "Latitude", "Longitude")[j],
@@ -34,48 +42,107 @@ class CoordinateTab(Widget):
                     compact=True
                 )
             for j in range(3)]
-
             for input in self.inputs:
                 input.styles.margin = (0, 1, 1, 1)
                 yield input
-            
             with Horizontal() as h:
                 h.styles.align = ("center", "bottom")
                 h.styles.height = "auto"
                 for j in range(2):
-                    b = Button(label=("Add", "Find")[j], id=("addLoc", "findLoc")[j])
-                    b.styles.margin = (0, 1, 0, 1)
+                    b = Button(label=("Add", "Delete")[j], id=("addLoc", "deleteLoc")[j])
+                    b.styles.margin = (0, 1, 1, 1)
                     b.styles.height = "auto"
                     b.styles.width = "auto"
                     yield b
+            b = Button(label="Find", id="findLoc")
+            b.styles.margin = (0, 2, 1, 2)
+            b.styles.width = "100%"
+            yield b
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "addLoc":
-            if self.inputs[0].value == "":
-                return
-            if self.inputs[1].value == "" or self.inputs[2].value == "":
-                return
-            log = g_logger
-            log.write_line(f"{self.inputs[0].value}, {len(self.inputs[1].value)}, {self.inputs[2].value}")
-            self.w_coordinates.add_row(self.inputs[0].value, self.inputs[1].value, self.inputs[2].value)
-        if event.button.id == "findLoc":
-            # Create a message to the main app
-            pass
+    @on(Button.Pressed, selector="#addLoc")
+    def add_location(self, event: Button.Pressed) -> None:
+        if self.inputs[0].value == "" or self.inputs[1].value == "" or self.inputs[2].value == "":
+            return
+        table_coordinates = self.query_one("#tableCoordinates", DataTable)
+        table_coordinates.add_row(self.inputs[0].value, self.inputs[1].value, self.inputs[2].value)
+
+    class Find(Message):
+        def __init__(self, coordinates: list[list[float]]):
+            self.coordinates = coordinates
+            super().__init__()
+
+    @on(Button.Pressed, selector="#findLoc")
+    def find_location(self, event: Button.Pressed) -> None:
+        coordinates = []
+        table_coordinates = self.query_one("#tableCoordinates", DataTable)
+        if table_coordinates.row_count == 0:
+            return
+        for i in range(table_coordinates.row_count):
+            row_key, _ = table_coordinates.coordinate_to_cell_key(Coordinate(i, 0))
+            row = table_coordinates.get_row(row_key)
+            coordinates.append([row[1], row[2]])
+        self.post_message(self.Find(coordinates))
+
+    @on(Button.Pressed, selector="#deleteLoc")
+    def delete_location(self, event: Button.Pressed) -> None:
+        table_coordinates = self.query_one("#tableCoordinates", DataTable)
+        if table_coordinates.row_count == 0:
+            return
+        cursor = table_coordinates.cursor_coordinate
+        row_key, _ = table_coordinates.coordinate_to_cell_key(cursor)
+        table_coordinates.remove_row(row_key)
+
+
+class SearchResults(Widget):
+    def __init__(self, results):
+        Widget.__init__(self)
+        self.results = []
+        if results:
+            self.results = results
+
+    def compose(self) -> ComposeResult:
+        self.result_table = DataTable()
+        for column in ("Name", "Type", "Score", "Address", "Link"):
+            self.result_table.add_columns(column)
+        self.result_table.styles.margin = (0, 1, 1, 1)
+        
+        yield self.result_table
 
 class MeetfindApp(App):
-    def compose(self) -> ComposeResult:
-        self.w_c = CoordinateTab()
-        self.w_c.styles.dock = "left"
-        self.w_c.styles.width = "30%"
-        g_logger.styles.border = ("round", "white")
-        g_logger.styles.background = Color(0, 0, 0)
-        yield self.w_c
-        yield g_logger 
+    def __init__(self, coordinates, type):
+        App.__init__(self)
+        self.coordinates = coordinates
+        self.type = type
+        self.results = []
 
+    def compose(self) -> ComposeResult:
+        coordinate_tab = CoordinateTab(self.coordinates)
+        coordinate_tab.styles.dock = "left"
+        coordinate_tab.styles.width = "30%"
+        yield coordinate_tab
+        with Vertical() as v:
+            search_results = SearchResults(self.results)
+            search_results.styles.border = ("round", "white")
+            search_results.styles.height = "70%"
+            yield search_results
+            rich_logger = RichLog(id="logger")
+            rich_logger.write("Sup.")
+            rich_logger.styles.border = ("round", "white")
+            rich_logger.styles.height = "30%"
+            yield rich_logger
+            
+
+    @on(CoordinateTab.Find)
+    def handle_find(self, event: CoordinateTab.Find):
+        logger = self.query_one("#logger", RichLog)
+        logger.write(f"Event received.\n{event.coordinates}")
+        planner = CentroidPlanner()
+        planner.setCoordinates(event.coordinates)
+        centroid = planner.getCentroid()
+        logger.write(f"Centroid: {centroid}")
+        ret, locs = gmaps_get_locations(centroid, "all", logger)
+        logger.write(f"Result: {ret, locs}")
     def on_key(self, event: events.Key) -> None:
         if event.key == 'q':
             self.exit()
 
-    def on_find(self) -> None:
-        # Get the coordinates, find the centroid. use Google API to get nice Cafe's and print them out with hyperlinks in markdown.
-        pass

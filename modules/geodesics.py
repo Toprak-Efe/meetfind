@@ -27,13 +27,11 @@ class CentroidPlanner():
         self._planned = False
         self._factory = None
 
-    def setCoordinates(self, cords: np.ndarray):
-        assert len(cords.shape) == 2, "Expected a 2-D array."
-        assert cords.shape[0] > 0, "Expected more than once coordinate."
-        assert cords.shape[1] == 2, "Expected coordinates to have two dimensions."
-        if not np.array_equiv(np.sort(self._coordinates, axis=0), np.sort(cords, axis=0)):
+    def setCoordinates(self, cords: list[list[float]]):
+        arr = np.array(cords, dtype=np.float32)
+        if not np.array_equiv(np.sort(self._coordinates, axis=0), np.sort(arr, axis=0)):
             self._planned = False
-        self._coordinates = cords
+        self._coordinates = arr
 
     def addCoordinate(self, cord: Coordinate):
         assert len(cord) == 2, "Expected coordinates with two numbers."
@@ -57,8 +55,4 @@ class CentroidPlanner():
             self.planCentroid()
         assert self._factory is not None, "Expected valid factory, impossible assertion."
         return self._factory.getCentroid(self._coordinates)
-
-
-
-
 
