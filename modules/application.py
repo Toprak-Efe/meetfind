@@ -8,7 +8,7 @@ from textual.coordinate import Coordinate
 from modules.geodesics import CentroidPlanner
 from modules.maps import gmaps_get_locations
 from typing import Callable, Union
-import clipboard
+import pyperclip
 import os
 
 class CoordinateTab(Widget):
@@ -181,6 +181,11 @@ class MeetfindApp(App):
             search_results.add_columns(column)
         yield search_results
 
+    @on(DataTable.CellSelected, selector="#searchResults")
+    def on_link_click(self, event: DataTable.CellSelected):
+        pyperclip.copy(f"{event.value}")
+        self.notify(f"Cell copied to clipboard.")
+
     @on(CoordinateTab.Find)
     def handle_find(self, event: CoordinateTab.Find):
         planner = CentroidPlanner()
@@ -188,6 +193,8 @@ class MeetfindApp(App):
         centroid = planner.getCentroid()
         self.notify(f"Searching for centroid {centroid[0]}, {centroid[1]}")
         radius = self.query_one("#radiusInput", Input).value
+        if not radius:
+            radius = 40
         locs = []
         try:
             locs = gmaps_get_locations(centroid, self.category, radius)

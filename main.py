@@ -1,4 +1,5 @@
 from modules.application import MeetfindApp 
+from modules.command import app
 import argparse
 
 if __name__ == "__main__":
@@ -13,4 +14,4 @@ if __name__ == "__main__":
         app = MeetfindApp(args.type, args.file, args.radi)
         app.run()
     else:
-        pass
+        app(args.type, args.file, args.radi)
