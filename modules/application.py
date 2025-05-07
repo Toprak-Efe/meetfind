@@ -9,6 +9,7 @@ from textual.containers import Vertical, Horizontal
 from textual.coordinate import Coordinate
 from modules.geodesics import CentroidPlanner
 from modules.maps import gmaps_get_locations
+import json
 
 class CoordinateTab(Widget):
     def __init__(self, cords):
@@ -105,14 +106,13 @@ class SearchResults(Widget):
         for column in ("Name", "Type", "Score", "Address", "Link"):
             self.result_table.add_columns(column)
         self.result_table.styles.margin = (0, 1, 1, 1)
-        
         yield self.result_table
 
 class MeetfindApp(App):
-    def __init__(self, coordinates, type):
+    def __init__(self, coordinates,category):
         App.__init__(self)
         self.coordinates = coordinates
-        self.type = type
+        self.category = category 
         self.results = []
 
     def compose(self) -> ComposeResult:
@@ -130,18 +130,22 @@ class MeetfindApp(App):
             rich_logger.styles.border = ("round", "white")
             rich_logger.styles.height = "30%"
             yield rich_logger
-            
 
     @on(CoordinateTab.Find)
     def handle_find(self, event: CoordinateTab.Find):
         logger = self.query_one("#logger", RichLog)
-        logger.write(f"Event received.\n{event.coordinates}")
         planner = CentroidPlanner()
         planner.setCoordinates(event.coordinates)
         centroid = planner.getCentroid()
-        logger.write(f"Centroid: {centroid}")
-        ret, locs = gmaps_get_locations(centroid, "all", logger)
-        logger.write(f"Result: {ret, locs}")
+        ret, locs = gmaps_get_locations(centroid, self.category, 200)
+        if not ret:
+            logger.write(f"Unable to retrieve locations.")
+            return
+        if len(locs) == 0:
+            logger.write(f"Unable to find any locations within the specified radius.")
+            return
+        
+
     def on_key(self, event: events.Key) -> None:
         if event.key == 'q':
             self.exit()
