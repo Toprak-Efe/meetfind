@@ -11,7 +11,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not args.noui:
-        app = MeetfindApp(args.type, args.file, args.radi)
-        app.run()
+        app_gui = MeetfindApp(args.type, args.file, args.radi)
+        app_gui.run()
     else:
         app(args.type, args.file, args.radi)
