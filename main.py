@@ -2,7 +2,7 @@ from modules.application import MeetfindApp
 from modules.command import app
 import argparse
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Find places near the centroid of friends' locations.")
     parser.add_argument('--file', type=str, default=None, help="The file containing friends' locations (latitude, longitude).")
     parser.add_argument('--type', type=str, default="bar", choices=["cafe", "restaurant", "park", "bar"], help="Type of place to search for (default: cafe).")
@@ -15,3 +15,7 @@ if __name__ == "__main__":
         app_gui.run()
     else:
         app(args.type, args.file, args.radi)
+
+if __name__ == "__main__":
+    main()
+
